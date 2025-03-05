@@ -149,13 +149,11 @@ app.post("/api/validate-code", async (req, res) => {
     return res.status(200).json({ valid: true });
   } catch (error) {
     console.error("Error validating code:", error);
-    return res
-      .status(500)
-      .json({
-        valid: false,
-        error: "Failed to validate code",
-        details: error.message,
-      });
+    return res.status(500).json({
+      valid: false,
+      error: "Failed to validate code",
+      details: error.message,
+    });
   }
 });
 
@@ -214,6 +212,84 @@ app.post("/api/generate-code", authenticateAdmin, async (req, res) => {
     return res
       .status(500)
       .json({ error: "Failed to generate code", details: error.message });
+  }
+});
+
+/**
+ * Store a username in the database (if not already stored)
+ * POST /api/store-username
+ */
+app.post("/api/store-username", async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "username is required" });
+    }
+
+    // Create a usernames collection if it doesn't exist already
+    const usernamesCollection = db.collection("usernames");
+
+    // Check if username already exists to avoid duplicates
+    const usernameDoc = await usernamesCollection
+      .where("username", "==", username)
+      .get();
+
+    // Only store if the username doesn't already exist
+    if (usernameDoc.empty) {
+      await usernamesCollection.add({
+        username: username,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Username stored successfully",
+      });
+    } else {
+      // Return success even if already exists, but with different message
+      return res.status(200).json({
+        success: true,
+        message: "Username already exists",
+      });
+    }
+  } catch (error) {
+    console.error("Error storing username:", error);
+    return res.status(500).json({
+      error: "Failed to store username",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * List all stored usernames
+ * GET /api/list-usernames
+ */
+app.get("/api/list-usernames",authenticateAdmin, async (req, res) => {
+  try {
+    // Reference to the usernames collection
+    const usernamesCollection = db.collection("usernames");
+
+    // Get all documents, sorted by creation time
+    const snapshot = await usernamesCollection
+      .orderBy("createdAt", "desc")
+      .get();
+
+    // Map the documents to a simpler format
+    const usernames = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      username: doc.data().username,
+      createdAt: doc.data().createdAt?.toDate(),
+    }));
+
+    return res.status(200).json({ usernames });
+  } catch (error) {
+    console.error("Error listing usernames:", error);
+    return res.status(500).json({
+      error: "Failed to list usernames",
+      details: error.message,
+    });
   }
 });
 
@@ -335,12 +411,10 @@ app.post("/api/update-wallet", async (req, res) => {
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Error updating wallet:", error);
-    return res
-      .status(500)
-      .json({
-        error: "Failed to update wallet address",
-        details: error.message,
-      });
+    return res.status(500).json({
+      error: "Failed to update wallet address",
+      details: error.message,
+    });
   }
 });
 
