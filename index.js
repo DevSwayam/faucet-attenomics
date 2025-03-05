@@ -91,71 +91,91 @@ app.post("/api/check-access", async (req, res) => {
  * POST /api/validate-code
  */
 app.post("/api/validate-code", async (req, res) => {
-  try {
-    const { code, userId } = req.body;
-
-    if (!code || code.length !== 6) {
-      return res
-        .status(400)
-        .json({ valid: false, error: "Invalid code format" });
-    }
-
-    // Query Firestore for the code
-    const codeSnapshot = await codesCollection
-      .where("code", "==", code.toUpperCase())
-      .where("status", "==", "active")
-      .get();
-
-    if (codeSnapshot.empty) {
-      return res.status(200).json({ valid: false, error: "Invalid code" });
-    }
-
-    const codeDoc = codeSnapshot.docs[0];
-    const codeData = codeDoc.data();
-
-    // Check if code is expired
-    if (codeData.expiresAt && codeData.expiresAt.toDate() < new Date()) {
-      await codesCollection.doc(codeDoc.id).update({ status: "expired" });
-      return res.status(200).json({ valid: false, error: "Code expired" });
-    }
-
-    // If code has a limit on uses, check if it's been reached
-    if (codeData.maxUses && codeData.usedCount >= codeData.maxUses) {
-      await codesCollection.doc(codeDoc.id).update({ status: "used" });
-      return res
-        .status(200)
-        .json({ valid: false, error: "Code usage limit reached" });
-    }
-
-    // If we have a userId, register the user as authorized
-    if (userId) {
-      // Update user in Firestore or create if they don't exist
-      await usersCollection.doc(userId).set(
-        {
+    try {
+      const { code, userId } = req.body;
+  
+      if (!code || code.length !== 6) {
+        return res
+          .status(400)
+          .json({ valid: false, error: "Invalid code format" });
+      }
+  
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ valid: false, error: "userId is required" });
+      }
+  
+      // Query Firestore for the code
+      const codeSnapshot = await codesCollection
+        .where("code", "==", code.toUpperCase())
+        .where("status", "==", "active")
+        .get();
+  
+      if (codeSnapshot.empty) {
+        return res.status(200).json({ valid: false, error: "Invalid code" });
+      }
+  
+      const codeDoc = codeSnapshot.docs[0];
+      const codeDocRef = codesCollection.doc(codeDoc.id);
+  
+      // Use a transaction to ensure atomicity when checking and updating the code
+      const result = await db.runTransaction(async (transaction) => {
+        const codeSnapshot = await transaction.get(codeDocRef);
+        const codeData = codeSnapshot.data();
+  
+        // Check if code is expired
+        if (codeData.expiresAt && codeData.expiresAt.toDate() < new Date()) {
+          transaction.update(codeDocRef, { status: "expired" });
+          return { valid: false, error: "Code expired" };
+        }
+  
+        // Check if code has reached its usage limit
+        if (codeData.maxUses && codeData.usedCount >= codeData.maxUses) {
+          transaction.update(codeDocRef, { status: "used" });
+          return { valid: false, error: "Code usage limit reached" };
+        }
+  
+        // Check if the code is already used by any user
+        if (codeData.usedBy) {
+          // If this user has already used this code, allow them to reuse it
+          if (codeData.usedBy === userId) {
+            return { valid: true, message: "Code already used by this user" };
+          } else {
+            // Another user has already used this code
+            return { valid: false, error: "This code has already been used by another user" };
+          }
+        }
+  
+        // Code is valid and not yet used by anyone
+        // Mark it as used by this user and update the usage count
+        transaction.update(codeDocRef, {
+          usedCount: admin.firestore.FieldValue.increment(1),
+          lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+          usedBy: userId
+        });
+  
+        // Also update user document
+        const userRef = usersCollection.doc(userId);
+        transaction.set(userRef, {
           status: "active",
           authorizedAt: admin.firestore.FieldValue.serverTimestamp(),
-          lastCode: code,
-        },
-        { merge: true }
-      );
+          lastCode: code
+        }, { merge: true });
+  
+        return { valid: true };
+      });
+  
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Error validating code:", error);
+      return res.status(500).json({
+        valid: false,
+        error: "Failed to validate code",
+        details: error.message,
+      });
     }
-
-    // Update code usage count
-    await codesCollection.doc(codeDoc.id).update({
-      usedCount: admin.firestore.FieldValue.increment(1),
-      lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return res.status(200).json({ valid: true });
-  } catch (error) {
-    console.error("Error validating code:", error);
-    return res.status(500).json({
-      valid: false,
-      error: "Failed to validate code",
-      details: error.message,
-    });
-  }
-});
+  });
 
 /**
  * Generate a new access code (admin only)
