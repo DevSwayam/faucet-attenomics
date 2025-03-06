@@ -1,18 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { dripFaucet, supportedChains } = require('./faucet');
+const bodyParser = require('body-parser');
+const { dripFaucet, supportedChains } = require('./api/faucet');
 
+// Initialize Express
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-// Enable CORS for all routes
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type']
-}));
-
-app.use(express.json());
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Get supported chains
 app.get('/api/faucet/chains', (req, res) => {
@@ -97,7 +96,18 @@ app.post('/api/faucet', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        error: "Something went wrong!",
+        details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+});
+
+// Start the server
 app.listen(PORT, () => {
     console.log(`Faucet API running on port ${PORT}`);
-}); 
+});
+
+module.exports = app; // For testing 
