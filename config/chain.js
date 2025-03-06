@@ -8,8 +8,8 @@ const chainConfig = {
         name: 'Sepolia',
         symbol: 'ETH',
         explorerUrl: 'https://sepolia.etherscan.io',
-        faucetAmount: ethers.parseEther('0.05'),
-        minBalance: ethers.parseEther('0.01')
+        faucetAmount: ethers.parseEther('0.1'),
+        minBalance: ethers.parseEther('0.05')
     },
     // Mumbai testnet configuration
     mumbai: {
@@ -18,8 +18,8 @@ const chainConfig = {
         name: 'Mumbai',
         symbol: 'MATIC',
         explorerUrl: 'https://mumbai.polygonscan.com',
-        faucetAmount: ethers.parseEther('0.05'),
-        minBalance: ethers.parseEther('0.01')
+        faucetAmount: ethers.parseEther('0.1'),
+        minBalance: ethers.parseEther('0.05')
     },
     sonicBlaze: {
         chainId: 57054,
@@ -27,8 +27,8 @@ const chainConfig = {
         name: 'Sonic Blaze Testnet',
         symbol: 'S',
         explorerUrl: 'https://testnet.sonicscan.org',
-        faucetAmount: ethers.parseEther('0.05'),
-        minBalance: ethers.parseEther('0.01')
+        faucetAmount: ethers.parseEther('0.1'),
+        minBalance: ethers.parseEther('0.05')
     },
     mantleSepolia: {
         chainId: 5003,
@@ -36,8 +36,8 @@ const chainConfig = {
         name: 'Mantle Sepolia Testnet',
         symbol: 'MNT',
         explorerUrl: 'https://sepolia.mantlescan.xyz',
-        faucetAmount: ethers.parseEther('0.05'),
-        minBalance: ethers.parseEther('0.01')
+        faucetAmount: ethers.parseEther('0.1'),
+        minBalance: ethers.parseEther('0.05')
     }
 };
 
