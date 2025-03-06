@@ -14,17 +14,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rate limiting middleware - modified for testing
-const rateLimit = require('express-rate-limit');
-const limiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
-    max: 5, // 5 requests per minute
-    message: {
-        success: false,
-        error: 'Too many requests, please try again later.'
-    }
-});
-
 // Get supported chains
 app.get('/api/faucet/chains', (req, res) => {
     res.json({
@@ -34,7 +23,7 @@ app.get('/api/faucet/chains', (req, res) => {
 });
 
 // Access code verification endpoint
-app.post('/api/faucet/access-code', limiter, async (req, res) => {
+app.post('/api/faucet/access-code', async (req, res) => {
     try {
         const { address, chain, accessCode } = req.body;
         
@@ -79,7 +68,7 @@ app.post('/api/faucet/access-code', limiter, async (req, res) => {
 });
 
 // Regular faucet endpoint
-app.post('/api/faucet', limiter, async (req, res) => {
+app.post('/api/faucet', async (req, res) => {
     try {
         const { address, chain } = req.body;
         
